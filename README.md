@@ -3,7 +3,8 @@ Course Project for Practical Machine Learning Data Science Specialization Course
 
 The repo contains the following:
 
-1) Course_project.Rmd
-2) Course_project.md
+1) CourseProject.Rmd
+2) CourseProject.md
+3) CourseProject.html
 
 
