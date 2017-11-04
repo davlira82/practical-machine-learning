@@ -1,0 +1,114 @@
+---
+title: "Course Project Practical Machine Learning"
+author: "David E Lira Baltazares"
+date: "11/3/2017"
+output: rmarkdown::github_document
+---
+
+```{r, message=FALSE}
+library(ggplot2)
+library(dplyr)
+library(caret)
+library(randomForest)
+```
+
+```{r, cache=TRUE}
+trainraw = read.csv("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv", sep=",",header = TRUE,na.strings = c("NA","",'#DIV/0!'))
+testraw = read.csv("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv", sep=",",header = TRUE, na.strings = c("NA","",'#DIV/0!'))
+
+```
+
+## R Markdown
+
+First, we dismissed all variables with no information or just NA as content for test and train datasets.
+```{r}
+
+train<- trainraw[,(colSums(is.na(trainraw)) == 0)]
+dim(train)
+
+test<- testraw[,(colSums(is.na(testraw)) == 0)]
+dim(test)
+
+```
+
+We see that 100 columns were dropped for each dataset from raw data, we had 160 variables, and after this first cleansing, we kept only 60 covariates.
+
+
+After that, we eliminate the covariates with near zero variance usig `caret` package from train and test datasets because they do not add so much value to our predictions. Only 54 covariates remain in the datasets. 
+
+
+```{r, cache=TRUE}
+
+set.seed(999)
+no_var <- nearZeroVar(train,saveMetrics=TRUE)
+traincl <- train[,no_var$nzv==FALSE]
+testcl <- test[,no_var$nzv==FALSE]
+
+dim(traincl)
+dim(testcl)
+```
+
+
+To execute the cross validation, first we divided the training dataset 75% for a new training set and the rest for a validation set.
+
+```{r, cache=TRUE}
+train_idx <- createDataPartition(y=traincl$classe, p=0.75, list=F)
+train_data <- traincl[train_idx, ]
+valid_data <- traincl[-train_idx, ]
+
+train_data <- train_data[, -(1:5)]
+valid_data <- valid_data[, -(1:5)]
+test_data <- testcl[, -(1:5)]
+```
+
+Now, using Cross Validation we fitted our model using a random forest decision tree with 3 folds.
+
+
+```{r, cache=TRUE}
+fitControl <- trainControl(method="cv", number=3, verboseIter=F)
+
+fit <- train(classe ~ ., data=train_data, method="rf", trControl=fitControl, importance=TRUE)
+
+fit
+```
+
+For interpretation purposes, we plotted the importance of each individual variable and as we can see, the variable `roll_belt` has the greatest importance in this model.
+
+```{r, cache=TRUE}
+varImpPlot(fit$finalModel, sort = TRUE, type = 1, pch = 19, col = 1, cex = 0.6, main = "Importance of the Individual Principal Components")
+```
+
+Once we had our fit, we built our confusion matrix with our predictions from the random forest model and the validation dataset.
+
+```{r, cache=TRUE}
+
+predictRf <- predict(fit, valid_data)
+confusionMatrix(valid_data$classe, predictRf)
+
+```
+
+Also, we computed the accuracy of the model, that as we see is almost 99.80%.
+
+```{r, cache=TRUE}
+accuracy <- postResample(predictRf, valid_data$classe)
+accuracy
+```
+
+Conversely, the out-of-sample error is quite small, just 0.20%.
+
+```{r, cache=TRUE}
+oose <- 1 - as.numeric(confusionMatrix(valid_data$classe, predictRf)$overall[1])
+oose
+```
+
+Finally, we predicted the 20 test cases available in the test data.
+
+```{r, cache=TRUE}
+result <- predict(fit, test_data[, -length(names(test_data))])
+result
+```
+
+
+
+
+
